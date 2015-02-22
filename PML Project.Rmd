@@ -1,0 +1,118 @@
+---
+title: "Practical Machine Learning Project"
+author: "Gio Bacareza"
+date: "February 21, 2015"
+output: html_document
+---
+
+**SUMMARY**
+
+The goal of this project is to predict the manner in which individuals did the exercise ("classe" variable) given data from on-body sensors strapped on them.
+
+We will follow the methodolody recommended in the class:
+
+1. Define the question
+
+2. Select input data
+
+3. Select the features
+
+4. Select the algorithm
+
+5. Define the parameters
+
+6. Evaluate the model
+
+**Defining the question**
+
+As stated in the research (http://groupware.les.inf.puc-rio.br/har#weight_lifting_exercises), six participants were asked to perform one set of 10 repetitions of the Unilateral Dumbbell Biceps Curl in five different fashions: exactly according to the specification (Class A), throwing the elbows to the front (Class B), lifting the dumbbell only halfway (Class C), lowering the dumbbell only halfway (Class D) and throwing the hips to the front (Class E). Sensors were placed on the arm, forearm and belt and measurements were taken.
+
+The question therefore is: can we use sensor data to predict predict activity quality from activity monitors?
+
+**Select input data**
+
+Data was collected during the experiment (http://groupware.les.inf.puc-rio.br/static/WLE/WearableComputing_weight_lifting_exercises_biceps_curl_variations.csv)
+
+We then partitioned the dataset into a training set (https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv) and a test set (https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv).
+
+We load the data and perform exploratory analysis
+```{r, echo=T}
+train1<-read.csv("pml-training.csv")
+test1<-read.csv("pml-testing.csv")
+```
+
+**Select the features**
+
+After exploratory data analysis (not shown here because of space constraints), not all features are needed. Therefore both training and testing datasets needed to be cleaned.
+
+First we filter out the dataset to only contain readings
+
+```{r}
+train2<-train1[train1$new_window=="no",]
+```
+
+Then we remove columns with all NAs.
+```{r}
+not_na<-which(colSums(is.na(train2)) != nrow(train2))
+train3<-train2[,not_na]
+test3<-test1[,not_na]
+```
+
+Next we remove the first 7 columns which are irrelevant to the model
+```{r}
+train4<-train3[,-c(1:7)]
+test4<-test3[,-c(1:7)]
+```
+
+Then we remove calculated variables (amplitude, kurtosis, max, min, skewness and total) to leave us with 48 variables corresponding to:
+
+Position: roll, pitch, yaw : 3 x 4 locations (arm, belt, dumbbell, forearm) = 12
+
+Acceleration - 3 axis (x, y, z) :  3 x 4 locations (arm, belt, dumbbell, forearm) = 12
+
+Gyroscope - 3 axis (x, y, z): 3 x 4 locations (arm, belt, dumbbell, forearm) = 12
+
+Magnetometer - 3 axis (x, y, z) :3 x 4 locations (arm, belt, dumbbell, forearm) = 12
+
+```{r}
+index_amplitude<-grep("amplitude",names(train4))
+index_kurtosis<-grep("kurtosis",names(train4))
+index_max<-grep("max",names(train4))
+index_min<-grep("min",names(train4))
+index_skewness<-grep("skewness",names(train4))
+index_total<-grep("total",names(train4))
+
+train5<-train4[,-c(index_amplitude,index_kurtosis,index_max,index_min,index_skewness,index_total)]
+
+test5<-test4[,-c(index_amplitude,index_kurtosis,index_max,index_min,index_skewness,index_total)]
+
+```
+
+
+**Select the algorithm and Define parameters**
+
+For this particular model, we select the random forest algorithm.
+
+Note that "In random forests, there is no need for cross-validation or a separate test set to get an unbiased estimate of the test set error. It is estimated internally, during the run..." (http://www.stat.berkeley.edu/~breiman/RandomForests/cc_home.htm#ooberr)
+
+This answers the question "Do the authors describe what they expect the out of sample error to be and estimate the error appropriately with cross-validation?"
+
+
+```{r, echo=FALSE}
+install.packages("randomForest", repos="http://cran.rstudio.com/")
+library(randomForest)
+```
+
+```{r}
+ modfit<-randomForest(classe~.,data=train5)
+```
+
+And then make the prediction:
+
+```{r}
+pred<-predict(modfit,test5)
+```
+
+**Evaluate the model**
+
+The prediction is submitted to evaluators for evaluation.
